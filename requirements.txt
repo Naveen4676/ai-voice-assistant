@@ -1,0 +1,6 @@
+fastapi
+gradio
+google-generativeai
+SpeechRecognition
+pyttsx3
+uvicorn
