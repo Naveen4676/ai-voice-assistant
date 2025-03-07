@@ -1,38 +1,37 @@
 import google.generativeai as genai
 import speech_recognition as sr
-import pyttsx3
-import webbrowser
+from gtts import gTTS
 import os
+import webbrowser
 import gradio as gr
 from fastapi import FastAPI
+from dotenv import load_dotenv
 
-# Configure Gemini API
-genai.configure(api_key="AIzaSyC9nma4N9yX08HgRd87TJ5BhFE-guX_4tw")
-
-# Initialize TTS engine
-engine = pyttsx3.init()
+# Load API key from environment variable
+load_dotenv()
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Function to get AI response
 def ask_gemini(prompt):
     response = genai.chat(model="gemini-pro").send_message(prompt)
     return response.text
 
-# Function to convert text to speech
+# Function to convert text to speech using gTTS
 def speak(text):
-    engine.say(text)
-    engine.runAndWait()
+    tts = gTTS(text=text, lang="en")
+    tts.save("response.mp3")
+    return "response.mp3"
 
 # Function to listen to voice commands
 def listen():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        print("Listening...")
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
-    
+
     try:
         command = recognizer.recognize_google(audio).lower()
-        print("You:", command)
         return command
     except sr.UnknownValueError:
         return ""
@@ -43,38 +42,28 @@ def listen():
 def process_command(command):
     if "open youtube" in command:
         webbrowser.open("https://www.youtube.com")
-        speak("Opening YouTube")
+        return "Opening YouTube"
     elif "search google for" in command:
         search_query = command.replace("search google for", "").strip()
         webbrowser.open(f"https://www.google.com/search?q={search_query}")
-        speak(f"Searching Google for {search_query}")
+        return f"Searching Google for {search_query}"
     elif "tell me a joke" in command:
         joke = ask_gemini("Tell me a joke.")
-        speak(joke)
-    elif "exit" in command:
-        speak("Goodbye!")
-        exit()
+        return joke
     else:
-        response = ask_gemini(command)
-        speak(response)
+        return ask_gemini(command)
 
-# Wake word activation
-while True:
-    wake_word = listen()
-    if "hey assistant" in wake_word:
-        speak("How can I help you?")
-        command = listen()
-        process_command(command)
-
-# Web UI using Gradio
+# Web UI using FastAPI + Gradio
 app = FastAPI()
 
-def chat_with_assistant(text):
-    return ask_gemini(text)
-
-ui = gr.Interface(fn=chat_with_assistant, inputs="text", outputs="text")
+# API for text-based interaction
 @app.get("/")
 def home():
     return {"message": "AI Voice Assistant is running"}
 
+def chat_with_assistant(text):
+    response = process_command(text)
+    return response, speak(response)  # Returns text + audio file
+
+ui = gr.Interface(fn=chat_with_assistant, inputs="text", outputs=["text", "audio"])
 app = gr.mount_gradio_app(app, ui, path="/")
