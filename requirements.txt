@@ -1,7 +1,7 @@
-google-generativeai
-SpeechRecognition
-gtts
+gradio
 fastapi
 uvicorn
-gradio
+speechrecognition
+google-generativeai
 python-dotenv
+ # Remove this if running on Hugging Face
